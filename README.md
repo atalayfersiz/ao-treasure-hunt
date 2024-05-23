@@ -1,4 +1,4 @@
-# ao-treasure-hunt
+# aos-treasure-hunt
 Treasure Hunt is a game for aos, where players search for hidden treasures while avoiding obstacles.
 
 # Game Rules
