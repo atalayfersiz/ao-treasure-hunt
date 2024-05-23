@@ -23,18 +23,3 @@ Game State: Includes the positions of all players, treasures, and obstacles.
 
 Actions: Players can move or pick up treasures based on their current position and energy level.
 
-
-.  .  .  .  .  .  .  .  .  . 
-.  T  .  .  .  .  .  .  .  . 
-.  .  P  .  .  .  .  .  .  . 
-.  .  .  .  .  X  .  .  .  . 
-.  .  .  .  .  .  .  .  .  . 
-.  .  .  .  .  .  X  .  .  . 
-.  .  .  .  .  .  .  .  .  . 
-.  .  .  .  .  .  .  .  T  . 
-.  .  .  .  .  .  .  .  .  . 
-.  .  .  .  .  .  .  .  .  . 
-
-P represents players.
-T represents treasures.
-X represents obstacles.
