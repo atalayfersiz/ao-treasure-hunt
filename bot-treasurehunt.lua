@@ -1,23 +1,3 @@
-Certainly! Let's design a new game that adheres to the rules and structure established in your original game. The new game will still involve players interacting within a grid, but we'll introduce a different theme and set of actions. This new game will be a **treasure hunt** where players search for hidden treasures while avoiding obstacles.
-
-### Game Rules
-
-1. **Game Area**: The game is played on a grid.
-2. **Players**: Multiple players move around the grid.
-3. **Treasures**: Treasures are hidden at random locations on the grid.
-4. **Obstacles**: Obstacles are placed randomly on the grid and cannot be moved through.
-5. **Actions**: Players can move in eight directions (up, down, left, right, and diagonals) and can pick up treasures if they move onto a cell containing a treasure.
-6. **Energy**: Players have limited energy which decreases with movement and increases when a treasure is found.
-
-### Key Elements
-
-1. **Player Object**: Each player has a position `(x, y)`, energy, and a score (number of treasures found).
-2. **Game State**: Includes the positions of all players, treasures, and obstacles.
-3. **Actions**: Players can move or pick up treasures based on their current position and energy level.
-
-### Lua Code Implementation
-
-```lua
 -- Initializing global variables to store the latest game state and game host process.
 LatestGameState = LatestGameState or nil
 InAction = InAction or false -- Prevents the agent from taking multiple actions at once.
@@ -225,3 +205,4 @@ Handlers.add(
 Handlers.add(
     "UpdateGameState",
     Hand
+
