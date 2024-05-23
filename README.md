@@ -1,6 +1,6 @@
 # ao-treasure-hunt
 
-Game Rules
+# Game Rules
 
 Game Area: The game is played on a grid.
 
@@ -14,7 +14,7 @@ Actions: Players can move in eight directions (up, down, left, right, and diagon
 
 Energy: Players have limited energy which decreases with movement and increases when a treasure is found.
 
-Key Elements
+# Key Elements
 
 Player Object: Each player has a position (x, y), energy, and a score (number of treasures found).
 
