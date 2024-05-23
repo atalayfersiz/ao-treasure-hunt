@@ -1,6 +1,5 @@
--- Initializing global variables to store the latest game state and game host process.
 LatestGameState = LatestGameState or nil
-InAction = InAction or false -- Prevents the agent from taking multiple actions at once.
+InAction = InAction or false
 Logs = Logs or {}
 
 colors = {
@@ -11,38 +10,28 @@ colors = {
     gray = "\27[90m"
 }
 
-function addLog(msg, text) -- Function definition commented for performance, can be used for debugging
-    Logs[msg] = Logs[msg] or {}
-    table.insert(Logs[msg], text)
-end
-
--- Checks if two points are within a given range.
--- @param x1, y1: Coordinates of the first point.
--- @param x2, y2: Coordinates of the second point.
--- @param range: The maximum allowed distance between the points.
--- @return: Boolean indicating if the points are within the specified range.
 function inRange(x1, y1, x2, y2, range)
     return math.abs(x1 - x2) <= range and math.abs(y1 - y2) <= range
 end
 
-function findNearestTreasure()
+function findNearestPlayer()
     local me = LatestGameState.Players[ao.id]
-
-    local nearestTreasure = nil
+    local nearestPlayer = nil
     local nearestDistance = nil
 
-    for _, treasure in ipairs(LatestGameState.Treasures) do
-        local xdiff = me.x - treasure.x
-        local ydiff = me.y - treasure.y
+    for target, state in pairs(LatestGameState.Players) do
+        if target == ao.id then goto continue end
+        local xdiff = me.x - state.x
+        local ydiff = me.y - state.y
         local distance = math.sqrt(xdiff * xdiff + ydiff * ydiff)
 
-        if nearestTreasure == nil or nearestDistance > distance then
-            nearestTreasure = treasure
+        if nearestPlayer == nil or nearestDistance > distance then
+            nearestPlayer = state
             nearestDistance = distance
         end
+        ::continue::
     end
-
-    return nearestTreasure
+    return nearestPlayer
 end
 
 directionMap = {}
@@ -57,12 +46,14 @@ directionMap[{ x = -1, y = -1 }] = "DownLeft"
 
 function findAvoidDirection()
     local me = LatestGameState.Players[ao.id]
-
     local avoidDirection = { x = 0, y = 0 }
-    for _, obstacle in ipairs(LatestGameState.Obstacles) do
-        local avoidVector = { x = me.x - obstacle.x, y = me.y - obstacle.y }
+
+    for target, state in pairs(LatestGameState.Players) do
+        if target == ao.id then goto continue end
+        local avoidVector = { x = me.x - state.x, y = me.y - state.y }
         avoidDirection.x = avoidDirection.x + avoidVector.x
         avoidDirection.y = avoidDirection.y + avoidVector.y
+        ::continue::
     end
     avoidDirection = normalizeDirection(avoidDirection)
 
@@ -84,10 +75,9 @@ end
 
 function findApproachDirection()
     local me = LatestGameState.Players[ao.id]
-
     local approachDirection = { x = 0, y = 0 }
-    local nearestTreasure = findNearestTreasure()
-    local approachVector = { x = nearestTreasure.x - me.x, y = nearestTreasure.y - me.y }
+    local otherPlayer = findNearestPlayer()
+    local approachVector = { x = otherPlayer.x - me.x, y = otherPlayer.y - me.y }
     approachDirection.x = approachDirection.x + approachVector.x
     approachDirection.y = approachDirection.y + approachVector.y
     approachDirection = normalizeDirection(approachDirection)
@@ -108,9 +98,9 @@ function findApproachDirection()
     return closestDirection
 end
 
-function isTreasureInRange(treasure)
+function isPlayerInAttackRange(player)
     local me = LatestGameState.Players[ao.id]
-    return inRange(me.x, me.y, treasure.x, treasure.y, 1)
+    return inRange(me.x, me.y, player.x, player.y, 1)
 end
 
 function normalizeDirection(direction)
@@ -118,22 +108,19 @@ function normalizeDirection(direction)
     return { x = direction.x / length, y = direction.y / length }
 end
 
--- Decides the next action based on player proximity and energy.
--- If any treasure is within range, it initiates a pickup; otherwise, moves towards the nearest treasure.
 function decideNextAction()
     local me = LatestGameState.Players[ao.id]
+    local nearestPlayer = findNearestPlayer()
+    local isNearestPlayerInAttackRange = isPlayerInAttackRange(nearestPlayer)
 
-    local nearestTreasure = findNearestTreasure()
-    local isNearestTreasureInRange = isTreasureInRange(nearestTreasure)
-
-    nearestTreasure.isInRange = isNearestTreasureInRange
-    nearestTreasure.meEnergy = me.energy
-    print(nearestTreasure)
+    nearestPlayer.isInAttackRange = isNearestPlayerInAttackRange
+    nearestPlayer.meEnergy = me.energy
+    print(nearestPlayer)
 
     if me.energy < 50 then
         CurrentStrategy = "avoid"
-    elseif nearestTreasure.isInRange then
-        CurrentStrategy = "pickup"
+    elseif nearestPlayer.isInAttackRange then
+        CurrentStrategy = "attack"
     else
         CurrentStrategy = "approach"
     end
@@ -141,68 +128,67 @@ function decideNextAction()
     local tableOfActions = {}
     tableOfActions["avoid"] = function()
         local direction = findAvoidDirection()
-        print(colors.green .. "saving energy. avoiding obstacles" .. colors.reset)
+        print(colors.green .. "saving energy. avoiding" .. colors.reset)
         ao.send({ Target = Game, Action = "PlayerMove", Player = ao.id, Direction = direction })
     end
     tableOfActions["approach"] = function()
         local direction = findApproachDirection()
-        print(colors.blue .. "searching for treasure. approach" .. colors.reset)
+        print(colors.blue .. "be angry. approach" .. colors.reset)
         ao.send({ Target = Game, Action = "PlayerMove", Player = ao.id, Direction = direction })
     end
-    tableOfActions["pickup"] = function()
-        print(colors.red .. "found treasure. picking up" .. colors.reset)
-        ao.send({ Target = Game, Action = "PlayerPickup", Player = ao.id, Treasure = nearestTreasure.id })
+    tableOfActions["attack"] = function()
+        print(colors.red .. "smash them. attack" .. colors.reset)
+        ao.send({ Target = Game, Action = "PlayerAttack", Player = ao.id, AttackEnergy = tostring(me.energy) })
     end
 
     tableOfActions[CurrentStrategy]()
-    InAction = false -- InAction logic added
+    InAction = false
 end
 
--- Handler to print game announcements and trigger game state updates.
-Handlers.add(
-    "PrintAnnouncements",
-    Handlers.utils.hasMatchingTag("Action", "Announcement"),
-    function(msg)
-        if msg.Event == "Started-Waiting-Period" then
-            ao.send({ Target = ao.id, Action = "AutoPay" })
-        elseif (msg.Event == "Tick" or msg.Event == "Started-Game") and not InAction then
-            InAction = true  -- InAction logic added
-            ao.send({ Target = Game, Action = "GetGameState" })
-        elseif InAction then -- InAction logic added
-            print("Previous action still in progress. Skipping.")
-        end
-
-        print(colors.green .. msg.Event .. ": " .. msg.Data .. colors.reset)
+Handlers.add("PrintAnnouncements", Handlers.utils.hasMatchingTag("Action", "Announcement"), function(msg)
+    if msg.Event == "Started-Waiting-Period" then
+        ao.send({ Target = ao.id, Action = "AutoPay" })
+    elseif (msg.Event == "Tick" or msg.Event == "Started-Game") and not InAction then
+        InAction = true
+        ao.send({ Target = Game, Action = "GetGameState" })
+    elseif InAction then
+        print("Previous action still in progress. Skipping.")
     end
-)
 
--- Handler to trigger game state updates.
-Handlers.add(
-    "GetGameStateOnTick",
-    Handlers.utils.hasMatchingTag("Action", "Tick"),
-    function()
-        if not InAction then -- InAction logic added
-            InAction = true  -- InAction logic added
-            print(colors.gray .. "Getting game state..." .. colors.reset)
-            ao.send({ Target = Game, Action = "GetGameState" })
-        else
-            print("Previous action still in progress. Skipping.")
-        end
+    print(colors.green .. msg.Event .. ": " .. msg.Data .. colors.reset)
+end)
+
+Handlers.add("GetGameStateOnTick", Handlers.utils.hasMatchingTag("Action", "Tick"), function()
+    if not InAction then
+        InAction = true
+        print(colors.gray .. "Getting game state..." .. colors.reset)
+        ao.send({ Target = Game, Action = "GetGameState" })
+    else
+        print("Previous action still in progress. Skipping.")
     end
-)
+end)
 
--- Handler to automate payment confirmation when waiting period starts.
-Handlers.add(
-    "AutoPay",
-    Handlers.utils.hasMatchingTag("Action", "AutoPay"),
-    function(msg)
-        print("Auto-paying confirmation fees.")
-        ao.send({ Target = Game, Action = "Transfer", Recipient = Game, Quantity = "1000" })
+Handlers.add("AutoPay", Handlers.utils.hasMatchingTag("Action", "AutoPay"), function(msg)
+    print("Auto-paying confirmation fees.")
+    ao.send({ Target = Game, Action = "Transfer", Recipient = Game, Quantity = "1000" })
+end)
+
+Handlers.add("UpdateGameState", Handlers.utils.hasMatchingTag("Action", "GameState"), function(msg)
+    local json = require("json")
+    LatestGameState = json.decode(msg.Data)
+    ao.send({ Target = ao.id, Action = "UpdatedGameState" })
+    print("Game state updated. Print 'LatestGameState' for detailed view.")
+    print("energy:" .. LatestGameState.Players[ao.id].energy)
+end)
+
+Handlers.add("decideNextAction", Handlers.utils.hasMatchingTag("Action", "UpdatedGameState"), function()
+    if LatestGameState.GameMode ~= "Playing" then
+        print("game not start")
+        InAction = false
+        return
     end
-)
-
--- Handler to update the game state upon receiving game state information.
-Handlers.add(
-    "UpdateGameState",
-    Hand
+    print("Deciding next action.")
+    decideNextAction()
+    ao.send({ Target = ao.id, Action = "Tick" })
+end)
 
